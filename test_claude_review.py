@@ -32,6 +32,10 @@ class ClaudeReviewTests(unittest.TestCase):
             ("example", "project", "42"),
         )
 
+    def test_parse_pr_shorthand(self):
+        self.assertEqual(claude_review.parse_pr_url("example/project/42"), ("example", "project", "42"))
+        self.assertEqual(claude_review.parse_pr_url("example/project#42"), ("example", "project", "42"))
+
     def test_summarize_diff_counts_files_and_additions(self):
         stats = claude_review.summarize_diff(SAMPLE_DIFF)
         self.assertEqual(stats.files, ["app.py"])

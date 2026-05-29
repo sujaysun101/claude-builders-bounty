@@ -20,6 +20,7 @@ from typing import Iterable
 
 
 PR_URL_RE = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/pull/(\d+)(?:/.*)?$")
+PR_SHORTHAND_RE = re.compile(r"^([^/\s]+)/([^/#\s]+)(?:/|#)(\d+)$")
 DIFF_FILE_RE = re.compile(r"^\+\+\+ b/(.+)$")
 DIFF_GIT_RE = re.compile(r"^diff --git a/(.+) b/(.+)$")
 HUNK_RE = re.compile(r"^@@")
@@ -43,9 +44,10 @@ class Finding:
 
 
 def parse_pr_url(pr_url: str) -> tuple[str, str, str]:
-    match = PR_URL_RE.match(pr_url.strip())
+    value = pr_url.strip()
+    match = PR_URL_RE.match(value) or PR_SHORTHAND_RE.match(value)
     if not match:
-        raise ValueError("PR URL must look like https://github.com/owner/repo/pull/123")
+        raise ValueError("PR must look like https://github.com/owner/repo/pull/123, owner/repo/123, or owner/repo#123")
     return match.group(1), match.group(2), match.group(3)
 
 
@@ -304,7 +306,7 @@ def post_review(pr_url: str, review_body: str, timeout: int) -> str:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Review a GitHub PR diff and print structured Markdown.")
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--pr", help="GitHub PR URL, e.g. https://github.com/owner/repo/pull/123")
+    source.add_argument("--pr", help="GitHub PR URL or shorthand, e.g. https://github.com/owner/repo/pull/123 or owner/repo#123")
     source.add_argument("--diff-file", help="Path to a local .diff file")
     parser.add_argument("--timeout", type=int, default=30, help="Network timeout in seconds for --pr")
     parser.add_argument("--output", help="Write the generated Markdown review to this file")

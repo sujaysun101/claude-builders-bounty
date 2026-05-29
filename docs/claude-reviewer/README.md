@@ -23,6 +23,13 @@ cd claude-builders-bounty
 python claude-review --pr https://github.com/owner/repo/pull/123
 ```
 
+Shorthand PR references are also supported:
+
+```bash
+python claude-review --pr owner/repo#123
+python claude-review --pr owner/repo/123
+```
+
 Save the generated Markdown:
 
 ```bash
