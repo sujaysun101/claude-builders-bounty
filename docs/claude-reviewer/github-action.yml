@@ -1,0 +1,28 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out reviewer
+        uses: actions/checkout@v4
+
+      - name: Generate review
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          python claude-review --pr "$PR_URL" > claude-review-output.md
+
+      - name: Post review comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file claude-review-output.md

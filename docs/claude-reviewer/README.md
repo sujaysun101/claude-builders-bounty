@@ -38,6 +38,13 @@ fails and the GitHub CLI is installed, it falls back to `gh pr diff`.
 python -m unittest
 ```
 
+## GitHub Action
+
+An optional workflow example is available at
+`docs/claude-reviewer/github-action.yml`. Copy it into
+`.github/workflows/claude-review.yml` in a repository that also contains this
+reviewer, or adapt the checkout step to install the reviewer from your fork.
+
 ## Notes
 
 The analyzer is intentionally conservative and deterministic. It flags common
