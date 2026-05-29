@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 import claude_review
 
@@ -58,6 +59,52 @@ class ClaudeReviewTests(unittest.TestCase):
         self.assertIn("## Identified Risks", output)
         self.assertIn("## Improvement Suggestions", output)
         self.assertIn("## Confidence:", output)
+
+    def test_post_review_creates_comment_with_marker(self):
+        calls: list[list[str]] = []
+
+        def fake_run_gh_api(args, timeout):
+            calls.append(args)
+            if args == ["repos/example/project/issues/42/comments", "--paginate"]:
+                return "[]"
+            return '{"html_url":"https://github.com/example/project/pull/42#issuecomment-1"}'
+
+        with patch.object(claude_review, "run_gh_api", side_effect=fake_run_gh_api):
+            url = claude_review.post_review("https://github.com/example/project/pull/42", "## Summary", 30)
+
+        self.assertEqual(url, "https://github.com/example/project/pull/42#issuecomment-1")
+        self.assertEqual(calls[1][0:3], ["--method", "POST", "repos/example/project/issues/42/comments"])
+        self.assertIn(claude_review.COMMENT_MARKER, calls[1][-1])
+
+    def test_post_review_updates_existing_marker_comment(self):
+        calls: list[list[str]] = []
+
+        def fake_run_gh_api(args, timeout):
+            calls.append(args)
+            if args == ["repos/example/project/issues/42/comments", "--paginate"]:
+                return '[{"id":123,"body":"<!-- claude-review:bot -->\\nold"}]'
+            return '{"html_url":"https://github.com/example/project/pull/42#issuecomment-123"}'
+
+        with patch.object(claude_review, "run_gh_api", side_effect=fake_run_gh_api):
+            url = claude_review.post_review("https://github.com/example/project/pull/42", "## Summary", 30)
+
+        self.assertEqual(url, "https://github.com/example/project/pull/42#issuecomment-123")
+        self.assertEqual(calls[1][0:3], ["--method", "PATCH", "repos/example/project/issues/comments/123"])
+
+    def test_main_writes_output_file(self):
+        with patch.object(claude_review, "read_diff", return_value=SAMPLE_DIFF), patch.object(
+            claude_review.Path, "write_text"
+        ) as write_text:
+            exit_code = claude_review.main(["--diff-file", "sample.diff", "--output", "review.md"])
+
+        self.assertEqual(exit_code, 0)
+        written_body = write_text.call_args.args[0]
+        self.assertIn("## Summary", written_body)
+        self.assertEqual(write_text.call_args.kwargs, {"encoding": "utf-8"})
+
+    def test_post_requires_pr_url(self):
+        exit_code = claude_review.main(["--diff-file", "sample.diff", "--post"])
+        self.assertEqual(exit_code, 1)
 
 
 if __name__ == "__main__":

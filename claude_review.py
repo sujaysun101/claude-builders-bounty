@@ -8,6 +8,7 @@ inside Claude Code, or on a fresh developer machine with only Python 3.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -22,6 +23,7 @@ PR_URL_RE = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/pull/(\d+)(?:/.*)?
 DIFF_FILE_RE = re.compile(r"^\+\+\+ b/(.+)$")
 DIFF_GIT_RE = re.compile(r"^diff --git a/(.+) b/(.+)$")
 HUNK_RE = re.compile(r"^@@")
+COMMENT_MARKER = "<!-- claude-review:bot -->"
 
 
 @dataclass(frozen=True)
@@ -258,12 +260,55 @@ def render_review(pr_url: str | None, stats: DiffStats) -> str:
     return "\n".join(lines)
 
 
+def run_gh_api(args: list[str], timeout: int) -> str:
+    command = ["gh", "api", *args]
+    try:
+        completed = subprocess.run(
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(f"Could not call GitHub API with gh: {exc}") from exc
+    return completed.stdout
+
+
+def post_review(pr_url: str, review_body: str, timeout: int) -> str:
+    owner, repo, number = parse_pr_url(pr_url)
+    payload = f"{COMMENT_MARKER}\n{review_body}"
+    comments_path = f"repos/{owner}/{repo}/issues/{number}/comments"
+    comments_raw = run_gh_api([comments_path, "--paginate"], timeout)
+    comments = json.loads(comments_raw or "[]")
+
+    existing_id: int | None = None
+    for comment in comments:
+        body = comment.get("body", "")
+        if COMMENT_MARKER in body:
+            existing_id = comment["id"]
+            break
+
+    if existing_id is not None:
+        result_raw = run_gh_api(
+            ["--method", "PATCH", f"repos/{owner}/{repo}/issues/comments/{existing_id}", "-f", f"body={payload}"],
+            timeout,
+        )
+    else:
+        result_raw = run_gh_api(["--method", "POST", comments_path, "-f", f"body={payload}"], timeout)
+
+    result = json.loads(result_raw or "{}")
+    return result.get("html_url", pr_url)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Review a GitHub PR diff and print structured Markdown.")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--pr", help="GitHub PR URL, e.g. https://github.com/owner/repo/pull/123")
     source.add_argument("--diff-file", help="Path to a local .diff file")
     parser.add_argument("--timeout", type=int, default=30, help="Network timeout in seconds for --pr")
+    parser.add_argument("--output", help="Write the generated Markdown review to this file")
+    parser.add_argument("--post", action="store_true", help="Post or update an idempotent comment on the PR")
     return parser
 
 
@@ -271,9 +316,17 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        if args.post and not args.pr:
+            raise ValueError("--post requires --pr so the target PR is known")
         diff_text = read_diff(args.diff_file, args.pr, args.timeout)
         stats = summarize_diff(diff_text)
-        print(render_review(args.pr, stats))
+        review = render_review(args.pr, stats)
+        if args.output:
+            Path(args.output).write_text(review, encoding="utf-8")
+        if args.post:
+            comment_url = post_review(args.pr, review, args.timeout)
+            print(f"Posted review comment: {comment_url}", file=sys.stderr)
+        print(review)
     except Exception as exc:
         print(f"claude-review: {exc}", file=sys.stderr)
         return 1

@@ -23,6 +23,21 @@ cd claude-builders-bounty
 python claude-review --pr https://github.com/owner/repo/pull/123
 ```
 
+Save the generated Markdown:
+
+```bash
+python claude-review --pr https://github.com/owner/repo/pull/123 --output review.md
+```
+
+Post or update an idempotent PR comment using the GitHub CLI:
+
+```bash
+python claude-review --pr https://github.com/owner/repo/pull/123 --post
+```
+
+`--post` uses a hidden `claude-review:bot` marker and updates the existing
+reviewer comment on later runs instead of creating duplicates.
+
 For offline testing, pass a saved diff:
 
 ```bash
