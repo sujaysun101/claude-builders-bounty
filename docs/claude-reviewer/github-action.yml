@@ -19,10 +19,25 @@ jobs:
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
-          python claude-review --pr "$PR_URL" > claude-review-output.md
+          {
+            echo '<!-- claude-review:bot -->'
+            python claude-review --pr "$PR_URL"
+          } > claude-review-output.md
 
-      - name: Post review comment
+      - name: Post or update review comment
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh pr comment "${{ github.event.pull_request.number }}" --body-file claude-review-output.md
+          existing_id="$(gh api \
+            repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            --jq '.[] | select(.body | startswith("<!-- claude-review:bot -->")) | .id' \
+            | tail -n 1)"
+
+          if [ -n "$existing_id" ]; then
+            gh api \
+              -X PATCH \
+              repos/${{ github.repository }}/issues/comments/$existing_id \
+              -f body="$(cat claude-review-output.md)"
+          else
+            gh pr comment "${{ github.event.pull_request.number }}" --body-file claude-review-output.md
+          fi

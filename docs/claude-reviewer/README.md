@@ -44,6 +44,8 @@ An optional workflow example is available at
 `docs/claude-reviewer/github-action.yml`. Copy it into
 `.github/workflows/claude-review.yml` in a repository that also contains this
 reviewer, or adapt the checkout step to install the reviewer from your fork.
+The workflow uses a hidden `claude-review:bot` marker and updates its previous
+comment on subsequent pushes, so it does not spam a PR thread on every commit.
 
 ## Notes
 
