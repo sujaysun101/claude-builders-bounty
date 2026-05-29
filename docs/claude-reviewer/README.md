@@ -68,6 +68,8 @@ An optional workflow example is available at
 reviewer, or adapt the checkout step to install the reviewer from your fork.
 The workflow uses a hidden `claude-review:bot` marker and updates its previous
 comment on subsequent pushes, so it does not spam a PR thread on every commit.
+It requests `issues: write` because PR comments are issue comments in the
+GitHub API.
 
 ## Notes
 
