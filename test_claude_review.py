@@ -13,6 +13,16 @@ index 1111111..2222222 100644
 +eval(user_input)
 """
 
+DELETION_DIFF = """diff --git a/old.py b/old.py
+deleted file mode 100644
+index 1111111..0000000
+--- a/old.py
++++ /dev/null
+@@ -1,2 +0,0 @@
+-print("obsolete")
+-print("remove me")
+"""
+
 
 class ClaudeReviewTests(unittest.TestCase):
     def test_parse_pr_url(self):
@@ -26,6 +36,13 @@ class ClaudeReviewTests(unittest.TestCase):
         self.assertEqual(stats.files, ["app.py"])
         self.assertEqual(stats.additions, 2)
         self.assertEqual(stats.deletions, 0)
+        self.assertEqual(stats.hunks, 1)
+
+    def test_summarize_diff_tracks_deleted_files(self):
+        stats = claude_review.summarize_diff(DELETION_DIFF)
+        self.assertEqual(stats.files, ["old.py"])
+        self.assertEqual(stats.additions, 0)
+        self.assertEqual(stats.deletions, 2)
         self.assertEqual(stats.hunks, 1)
 
     def test_risk_detection_finds_security_patterns(self):

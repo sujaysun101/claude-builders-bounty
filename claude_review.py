@@ -20,6 +20,7 @@ from typing import Iterable
 
 PR_URL_RE = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/pull/(\d+)(?:/.*)?$")
 DIFF_FILE_RE = re.compile(r"^\+\+\+ b/(.+)$")
+DIFF_GIT_RE = re.compile(r"^diff --git a/(.+) b/(.+)$")
 HUNK_RE = re.compile(r"^@@")
 
 
@@ -77,7 +78,7 @@ def fetch_diff_with_gh(owner: str, repo: str, number: str, timeout: int) -> str:
 
 def read_diff(path: str | None, pr_url: str | None, timeout: int) -> str:
     if path:
-        return Path(path).read_text(encoding="utf-8")
+        return Path(path).read_text(encoding="utf-8", errors="replace")
     if pr_url:
         return fetch_diff(pr_url, timeout)
     raise ValueError("Provide either --pr or --diff-file")
@@ -92,9 +93,17 @@ def summarize_diff(diff_text: str) -> DiffStats:
     deleted_lines: list[str] = []
 
     for line in diff_text.splitlines():
+        git_match = DIFF_GIT_RE.match(line)
+        if git_match:
+            old_path, new_path = git_match.groups()
+            files.append(new_path if new_path != "/dev/null" else old_path)
+            continue
+
         file_match = DIFF_FILE_RE.match(line)
         if file_match and file_match.group(1) != "/dev/null":
-            files.append(file_match.group(1))
+            file_name = file_match.group(1)
+            if file_name not in files:
+                files.append(file_name)
         elif HUNK_RE.match(line):
             hunks += 1
         elif line.startswith("+") and not line.startswith("+++"):
