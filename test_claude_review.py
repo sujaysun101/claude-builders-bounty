@@ -1,4 +1,6 @@
 import unittest
+import contextlib
+import io
 from unittest.mock import patch
 
 import claude_review
@@ -100,9 +102,14 @@ class ClaudeReviewTests(unittest.TestCase):
         self.assertEqual(calls[1][0:3], ["--method", "PATCH", "repos/example/project/issues/comments/123"])
 
     def test_main_writes_output_file(self):
-        with patch.object(claude_review, "read_diff", return_value=SAMPLE_DIFF), patch.object(
-            claude_review.Path, "write_text"
-        ) as write_text:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with (
+            patch.object(claude_review, "read_diff", return_value=SAMPLE_DIFF),
+            patch.object(claude_review.Path, "write_text") as write_text,
+            contextlib.redirect_stdout(stdout),
+            contextlib.redirect_stderr(stderr),
+        ):
             exit_code = claude_review.main(["--diff-file", "sample.diff", "--output", "review.md"])
 
         self.assertEqual(exit_code, 0)
@@ -111,7 +118,10 @@ class ClaudeReviewTests(unittest.TestCase):
         self.assertEqual(write_text.call_args.kwargs, {"encoding": "utf-8"})
 
     def test_post_requires_pr_url(self):
-        exit_code = claude_review.main(["--diff-file", "sample.diff", "--post"])
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            exit_code = claude_review.main(["--diff-file", "sample.diff", "--post"])
         self.assertEqual(exit_code, 1)
 
 
