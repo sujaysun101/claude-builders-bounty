@@ -64,6 +64,10 @@ class ClaudeReviewTests(unittest.TestCase):
         self.assertIn("## Improvement Suggestions", output)
         self.assertIn("## Confidence:", output)
 
+    def test_classify_files_detects_python_test_naming(self):
+        groups = claude_review.classify_files(["test_claude_review.py", "tests/unit/test_api.py"])
+        self.assertEqual(groups, ["tests"])
+
     def test_post_review_creates_comment_with_marker(self):
         calls: list[list[str]] = []
 

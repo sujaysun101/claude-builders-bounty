@@ -73,17 +73,10 @@ GitHub API.
 
 ## Samples
 
-Generated sample outputs live in `sample-outputs/`:
+See the standalone generated outputs in `sample-outputs/`:
 
 - `sample-outputs/archestra-5144.md`
 - `sample-outputs/algora-299.md`
-
-## Notes
-
-The analyzer is intentionally conservative and deterministic. It flags common
-review risks such as possible secrets, dynamic code execution, raw HTML writes,
-disabled TLS verification, broad error handling, large diffs, and application
-changes without obvious test updates.
 
 ## Claude Code Agent
 

@@ -140,8 +140,11 @@ def classify_files(files: list[str]) -> list[str]:
             groups.append("documentation")
         elif (
             lower.endswith((".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx", "_test.py"))
+            or lower.rsplit("/", 1)[-1].startswith("test_") and lower.endswith(".py")
             or "/__test__/" in lower
             or "/__tests__/" in lower
+            or "/test/" in lower
+            or "/tests/" in lower
         ):
             groups.append("tests")
         elif lower.endswith((".yml", ".yaml")) or ".github/workflows/" in lower:
