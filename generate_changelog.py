@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate a structured CHANGELOG.md from git history since the last tag.
 
-Dependency-free: only requires Python 3 and git.
+Dependency-free: only requires Python 3.8+ and git.
 """
 
 from __future__ import annotations
@@ -9,12 +9,8 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import subprocess
-from dataclasses import dataclass
-
-
-@dataclass(frozen=True)
-class Entry:
-    subject: str
+import sys
+from typing import List, Optional
 
 
 def sh(cmd: list[str]) -> str:
@@ -22,14 +18,14 @@ def sh(cmd: list[str]) -> str:
     return out.decode("utf-8", errors="replace").strip()
 
 
-def try_last_tag() -> str | None:
+def try_last_tag() -> Optional[str]:
     try:
         return sh(["git", "describe", "--tags", "--abbrev=0"]) or None
     except subprocess.CalledProcessError:
         return None
 
 
-def subjects_since(tag: str | None) -> list[str]:
+def subjects_since(tag: Optional[str]) -> List[str]:
     rev = "HEAD" if not tag else f"{tag}..HEAD"
     out = sh(["git", "log", "--no-merges", "--pretty=format:%s", rev])
     if not out:
@@ -38,17 +34,33 @@ def subjects_since(tag: str | None) -> list[str]:
 
 
 def bucket(subject: str) -> str:
-    lower = subject.lower()
-    if lower.startswith(("feat", "add")):
+    lower = subject.lower().strip()
+    # Match conventional-commit-ish prefixes using a delimiter so we don't
+    # accidentally treat "feature:" as "feat:" etc.
+    def _starts(prefixes) -> bool:
+        return any(lower.startswith(p) for p in prefixes)
+
+    if _starts(("feat(", "feat:", "feat!", "feat ", "add(", "add:", "add!", "add ")):
         return "Added"
-    if lower.startswith("fix"):
+    if _starts(("fix(", "fix:", "fix!", "fix ")):
         return "Fixed"
-    if lower.startswith(("remove", "delete")):
+    if _starts(
+        (
+            "remove(",
+            "remove:",
+            "remove!",
+            "remove ",
+            "delete(",
+            "delete:",
+            "delete!",
+            "delete ",
+        )
+    ):
         return "Removed"
     return "Changed"
 
 
-def render(subjects: list[str], tag: str | None) -> str:
+def render(subjects: List[str], tag: Optional[str]) -> str:
     today = dt.date.today().isoformat()
     since_line = "(all commits)" if not tag else f"since tag {tag}"
 
@@ -88,7 +100,11 @@ def main() -> int:
     ap.add_argument("--output", default="CHANGELOG.md")
     args = ap.parse_args()
 
-    sh(["git", "rev-parse", "--is-inside-work-tree"])
+    try:
+        sh(["git", "rev-parse", "--is-inside-work-tree"])
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+        print(f"error: must run inside a git repository and have git installed ({exc})", file=sys.stderr)
+        return 2
 
     tag = try_last_tag()
     subjects = subjects_since(tag)

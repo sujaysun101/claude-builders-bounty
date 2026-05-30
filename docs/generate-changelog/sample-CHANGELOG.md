@@ -5,20 +5,14 @@
 _Generated from git history (all commits)._
 
 ### Added
-- Add idempotent PR comment posting
-- Address PR review edge cases
-- Add PR review action example
-- Add Claude PR review agent
+- Add changelog generator script
 - feat: initial README with bounty board
 
 ### Fixed
 - (none)
 
 ### Changed
-- Strengthen Claude PR reviewer submission
-- Document review action comment permission
-- Support shorthand PR references
-- Make review action idempotent
+- (none)
 
 ### Removed
 - (none)

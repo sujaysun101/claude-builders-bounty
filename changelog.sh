@@ -11,7 +11,12 @@ output="CHANGELOG.md"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --output)
-      output="${2:-}"
+      if [[ $# -lt 2 ]] || [[ -z "${2:-}" ]]; then
+        echo "error: --output requires a value" >&2
+        echo "Usage: bash changelog.sh [--output CHANGELOG.md]" >&2
+        exit 2
+      fi
+      output="$2"
       shift 2
       ;;
     -h|--help)
